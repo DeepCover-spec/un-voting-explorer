@@ -1,16 +1,16 @@
 # UN General Assembly Voting Explorer
 
-An exploration of how countries vote at the UN General Assembly: a data pipeline over about 947,000 recorded votes, a measure of voting similarity between countries, and a first look at voting blocs. Work in progress.
+An exploration of how countries vote at the UN General Assembly: a data pipeline over about 947,000 recorded votes, a measure of voting similarity between countries, clustering of countries, and a look at how agreement with a Western anchor group has changed since 1950. Work in progress.
 
 ## Status
 
 - [x] Data download, validation, and preparation (`src/prepare.py`)
 - [x] Exploratory analysis of the vote data
 - [x] Country-to-country agreement measure, with two ways of scoring abstentions
-- [x] First clustering of countries (2000-2024)
-- [ ] Choose the number of clusters with evidence
-- [ ] Track how blocs shift over time
+- [x] Clustering of countries (2000-2024) and a choice of cluster count based on evidence
+- [x] First version of the time analysis (agreement with a fixed Western anchor group, 1950-2024)
 - [ ] Interactive app: compare any two countries
+- [ ] Move shared functions from the notebooks into `src/votes.py`
 
 ## Data
 
@@ -28,7 +28,9 @@ Source: United Nations Dag Hammarskjöld Library, *General Assembly Voting Data*
 2. **Agreement**: for each pair of countries, a score over the resolutions both voted on. Pairs with fewer than 20 shared votes are ignored. Two versions:
    * **Strict:** the share of shared votes where both cast the same vote (yes against abstain counts as disagreement).
    * **Soft:** yes against abstain counts as half agreement; yes against no counts as full disagreement.
-3. **Cluster**: convert agreement to distance, place countries on a two-dimensional map with multidimensional scaling, and group them with Ward hierarchical clustering. Only countries that voted on at least 70% of the resolutions in the window are included (176 countries for 2000-2024).
+3. **Cluster**: convert agreement to distance, place countries on a five-dimensional map with multidimensional scaling (fixed random seed), and group them with Ward hierarchical clustering. Only countries that voted on at least 70% of the resolutions in the window are included (176 countries for 2000-2024).
+4. **Choose the number of clusters** with silhouette scores, in several windows and with and without the most extreme countries.
+5. **Time analysis**: for each five-year period from 1950-54 to 2020-24, each country's mean strict agreement with a fixed anchor group (United Kingdom, France, Canada, Australia, Netherlands, Belgium, Norway, Denmark). The United States is left out of the anchors on purpose.
 
 Country codes (`ms_code`) are treated as continuous across renames and changes of government. Predecessor and successor states (for example the USSR and Russia) are linked in a separate lookup column and are not merged.
 
@@ -51,22 +53,55 @@ For 2000-2024, agreement between selected pairs (about 2,000 shared votes each; 
 | India - France | 0.43 / 0.61 | 167 / 167 |
 | India - USA | 0.16 / 0.28 | 175 / 175 |
 
-### Clusters (2000-2024, 176 countries, six groups)
-The groups include a Western and European bloc (50 countries), a Latin American-centred group (28), a large group of mostly African, Arab, and Asian states (86), the United States with Israel, and a small group of Pacific states that vote with the US (Micronesia, Marshall Islands, Palau). Under strict scoring a seven-country group also appeared (China, India, Pakistan, Iran, Russia, Syria, North Korea), but direct comparison shows it is not a tight bloc: China ranks 39th among India's partners and Russia 116th. Under soft scoring, Russia separates from China and India. Cluster boundaries therefore depend on how abstentions are scored.
+A seven-country group (China, India, Pakistan, Iran, Russia, Syria, North Korea) appeared under strict scoring in one six-cluster run, but the table shows it is not a tight bloc: China ranks 39th among India's partners and Russia 116th. Under soft scoring, Russia separates from China and India.
+
+### Number of clusters
+Silhouette scores (higher means better-separated groups):
+
+| Setup | Countries | k=2 | k=3 | k=4 | k=5 | k=6 | k=7 | k=8 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 2000-2024, strict | 176 | 0.67 | 0.69 | 0.42 | 0.42 | 0.42 | 0.39 | 0.37 |
+| 2000-2024, soft | 176 | 0.72 | 0.73 | 0.72 | 0.43 | 0.42 | 0.40 | 0.40 |
+| 1980-1989, strict | 146 | 0.71 | 0.65 | 0.40 | 0.41 | 0.35 | 0.36 | 0.35 |
+| 2010-2024, strict | 181 | 0.67 | 0.67 | 0.45 | 0.44 | 0.44 | 0.43 | 0.33 |
+| 2000-2024, strict, outliers removed | 171 | 0.70 | 0.48 | 0.44 | 0.36 | 0.33 | 0.34 | 0.24 |
+| 2000-2024, soft, outliers removed | 171 | 0.76 | 0.43 | 0.42 | 0.39 | 0.31 | 0.32 | 0.30 |
+
+The outliers are the United States, Israel, Micronesia, the Marshall Islands, and Palau. With them included, the best scores are at two and three groups. With three groups the split is a Western and European group (50 countries), the United States with Israel and the three Pacific states (5), and all other countries (121). Removing the five outliers leaves the two-group division intact (the score rises to 0.70 strict and 0.76 soft) and leaves no clear structure beyond it, so the high k=3 score partly reflected the extreme countries.
+
+The one clear division is therefore a Western and European group of about 50 countries against all others. Finer splits, such as a Latin American-centred group of 28 countries in a six-group solution, are descriptions of a continuum and not distinct blocs. Under soft scoring, Australia and Canada sit with the Pacific states and not the main Western group; I did not investigate why.
 
 ![Countries by voting similarity, strict and soft scoring](reports/voting_map_strict_vs_soft.png)
 
 *Voting map, 2000-2024. Axes have no meaning; only distances between countries do. The two panels cannot be compared by position.*
 
-On the map, a compact Western and European group sits apart from one dense mass of other countries, with the US and Israel far out on their own. Most of the structure inside the dense mass looks like a continuum, not separate blocs.
+### Agreement with a Western anchor group over time
+![Agreement with a Western anchor group, 1950-2024](reports/agreement_with_west_over_time.png)
+
+* **The USSR and Russia show the largest change.** Agreement with the anchor group was about [0.31] in 1980-84, rose to about [0.68] in 1995-99, and fell back to about [0.41] in 2020-24.
+* **Most of the other countries shown follow a similar shape**: lower in 1980-89 than in 1970-74, a peak in the late 1990s, and lower again by 2020-24 than in 1995-99. India and China move much less than the others.
+* **South Africa has no line from 1975-79 to 1985-89** because the data does not show enough shared votes in those periods.
+* The early periods have far fewer votes: 74 resolutions in 1950-54 against about 710 in each of 1980-84 and 1985-89, and 360 to 460 in each period since 1990. Early points are rough.
+* I describe these patterns and did not investigate their causes. Recorded votes depend on which resolutions were put to a vote, which also changed over time.
 
 ## Limitations
 
 * Recorded votes are not a random sample of all resolutions, because most pass by consensus without a vote.
 * Agreement reflects similar votes on recorded-vote resolutions, not alliances or relations.
-* Clusters depend on the number of groups chosen, the time window, and how abstentions are scored. Most countries outside the Western group and the US-Israel pair form a continuous cloud, so cluster boundaries within it are somewhat arbitrary.
+* Cluster results depend on the number of groups chosen, the time window, and how abstentions are scored. Most countries outside the Western group and the five outliers form a continuous cloud, so boundaries within it are somewhat arbitrary.
+* Silhouette scores are a rule of thumb, and small extreme groups can raise them.
+* The anchor group in the time analysis is a choice of eight countries and is not a neutral reference.
+* The dataset uses one code for the Chinese seat throughout. The seat changed from the Republic of China to the People's Republic of China in 1971, so China's line starts in 1975-79.
+* The USSR/Russia line joins two codes. The 1990-94 point uses the Soviet Union's 1990-91 votes only, because the Soviet value is preferred when both exist.
 * Country-code continuity across renames is an assumption; Yemen's code spans North Yemen and the unified state after 1990.
-* No significance tests have been run, and 2025 is unusual enough that windows including it should be read with care.
+* No significance tests have been run, and 2025 is unusual enough that windows including it should be read with care. The time analysis stops at 2024.
+
+## Next steps
+
+1. Move the agreement and clustering functions from the notebooks into `src/votes.py`.
+2. Build a small Streamlit app: pick two countries, see their agreement over time and each country's closest voting partners.
+3. Plot the Soviet Union and Russia as separate series.
+4. Run the time analysis with the soft agreement scoring and compare.
 
 ## How to run
 
