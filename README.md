@@ -127,18 +127,17 @@ cd un-voting-explorer
 python -m venv .venv
 .venv\Scripts\activate        # Mac/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-The prepared tables are already in `data/processed/`, so the app runs straight away:
-
-```bash
 streamlit run app.py
 ```
 
-To rebuild them from the original data, download `2026_02_06_ga_voting.csv` from the [UN Digital Library](https://digitallibrary.un.org/record/4060887) into `data/raw/`, then:
+The prepared tables are already in `data/processed/`, so the app runs straight away. To run the notebooks as well, install the full set of packages instead:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+To rebuild the prepared tables from the original data, download `2026_02_06_ga_voting.csv` from the [UN Digital Library](https://digitallibrary.un.org/record/4060887) into `data/raw/`, then:
 
 ```bash
 python src/prepare.py
 ```
-
-The notebooks in `notebooks/` contain the analysis.
