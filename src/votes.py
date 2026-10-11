@@ -96,3 +96,13 @@ def anchor_agreement(M, res, start, end, soft=False):
     for a in cols:
         s.loc[a, a] = np.nan          # ignore each anchor's agreement with itself
     return s.mean(axis=1)
+
+
+def merge_lineage(M, countries):
+    """Combine predecessor and successor states into one row per lineage.
+
+    Uses the first non-missing vote per resolution, so a predecessor and its
+    successor never double count (their membership periods do not overlap).
+    """
+    lineage = countries.set_index("ms_code")["lineage_code"]
+    return M.groupby(M.index.map(lineage)).first()
