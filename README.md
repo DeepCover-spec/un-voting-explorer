@@ -1,6 +1,22 @@
 # UN General Assembly Voting Explorer
 
-An exploration of how countries vote at the UN General Assembly: a data pipeline over about 947,000 recorded votes, a measure of voting similarity between countries, clustering of countries, and a look at how agreement with a Western anchor group has changed since 1950. Work in progress.
+An exploration of how countries vote at the UN General Assembly: a data pipeline over about 947,000 recorded votes, a measure of voting similarity between countries, clustering of countries, a look at how agreement with a Western anchor group has changed since 1950, and an interactive app for comparing any two countries. Work in progress.
+
+## App
+
+![UN Voting Explorer app](reports/app_screenshot.png)
+![Closest voting partners](reports/app_partners.png)
+
+Pick two countries and a range of years to see how often they voted the same way, how that changed by five-year period, and which countries each one votes most like.
+
+```bash
+streamlit run app.py
+```
+
+* **Soft scoring** counts a yes against an abstention as half agreement instead of full disagreement.
+* **Link predecessor states** joins the Soviet Union to Russia, West Germany to Germany, Czechoslovakia to the Czech Republic, and Yugoslavia and Serbia and Montenegro to Serbia. This is a modelling choice, since successor states do not always inherit a predecessor's voting position.
+* China is hidden before 1972, because the dataset uses one code for the Chinese seat and the seat changed governments in 1971.
+* Pairs with fewer than 20 shared votes are not scored.
 
 ## Status
 
@@ -8,9 +24,10 @@ An exploration of how countries vote at the UN General Assembly: a data pipeline
 - [x] Exploratory analysis of the vote data
 - [x] Country-to-country agreement measure, with two ways of scoring abstentions
 - [x] Clustering of countries (2000-2024) and a choice of cluster count based on evidence
-- [x] First version of the time analysis (agreement with a fixed Western anchor group, 1950-2024)
-- [ ] Interactive app: compare any two countries
-- [ ] Move shared functions from the notebooks into `src/votes.py`
+- [x] Time analysis: agreement with a fixed Western anchor group, 1950-2024
+- [x] Shared functions moved into `src/votes.py`
+- [x] Interactive app with optional linking of predecessor states
+- [ ] Deploy the app online
 
 ## Data
 
@@ -18,21 +35,21 @@ UN Digital Library recorded votes on General Assembly resolutions (version 5, Fe
 
 * Only resolutions adopted by a recorded vote are included. Most resolutions pass without a vote, and votes on paragraphs or on drafts that failed are not in this dataset.
 * Vote codes: Y (yes), N (no), A (abstain), X (non-voting).
-* The raw file is 364 MB and is not stored in this repository.
+* The raw file is 364 MB and is not stored in this repository. The prepared tables in `data/processed/` are.
 
 Source: United Nations Dag Hammarskjöld Library, *General Assembly Voting Data*, United Nations, version 5 (February 2026), downloaded from the [UN Digital Library](https://digitallibrary.un.org/record/4060887). Non-commercial use with attribution.
 
 ## Method
 
 1. **Prepare** (`src/prepare.py`): split the raw file into three tables (votes, resolutions, countries). Votes are coded yes = 1, abstain = 0, no = -1; non-voting is treated as missing, not as a neutral position.
-2. **Agreement**: for each pair of countries, a score over the resolutions both voted on. Pairs with fewer than 20 shared votes are ignored. Two versions:
+2. **Agreement** (`src/votes.py`): for each pair of countries, a score over the resolutions both voted on. Pairs with fewer than 20 shared votes are ignored. Two versions:
    * **Strict:** the share of shared votes where both cast the same vote (yes against abstain counts as disagreement).
    * **Soft:** yes against abstain counts as half agreement; yes against no counts as full disagreement.
 3. **Cluster**: convert agreement to distance, place countries on a five-dimensional map with multidimensional scaling (fixed random seed), and group them with Ward hierarchical clustering. Only countries that voted on at least 70% of the resolutions in the window are included (176 countries for 2000-2024).
 4. **Choose the number of clusters** with silhouette scores, in several windows and with and without the most extreme countries.
 5. **Time analysis**: for each five-year period from 1950-54 to 2020-24, each country's mean strict agreement with a fixed anchor group (United Kingdom, France, Canada, Australia, Netherlands, Belgium, Norway, Denmark). The United States is left out of the anchors on purpose.
 
-Country codes (`ms_code`) are treated as continuous across renames and changes of government. Predecessor and successor states (for example the USSR and Russia) are linked in a separate lookup column and are not merged.
+Country codes (`ms_code`) are treated as continuous across renames and changes of government. Predecessor and successor states are linked in a separate lookup column (`lineage_code`) and are merged only when the app's linking option is on.
 
 ## Findings so far
 
@@ -78,7 +95,7 @@ The one clear division is therefore a Western and European group of about 50 cou
 ### Agreement with a Western anchor group over time
 ![Agreement with a Western anchor group, 1950-2024](reports/agreement_with_west_over_time.png)
 
-* **The USSR and Russia show the largest change.** Agreement with the anchor group was about [0.31] in 1980-84, rose to about [0.68] in 1995-99, and fell back to about [0.41] in 2020-24.
+* **The USSR and Russia show the largest change.** Agreement with the anchor group was [0.31] in 1980-84, rose to [0.68] in 1995-99, and fell back to [0.41] in 2020-24.
 * **Most of the other countries shown follow a similar shape**: lower in 1980-89 than in 1970-74, a peak in the late 1990s, and lower again by 2020-24 than in 1995-99. India and China move much less than the others.
 * **South Africa has no line from 1975-79 to 1985-89** because the data does not show enough shared votes in those periods.
 * The early periods have far fewer votes: 74 resolutions in 1950-54 against about 710 in each of 1980-84 and 1985-89, and 360 to 460 in each period since 1990. Early points are rough.
@@ -91,17 +108,16 @@ The one clear division is therefore a Western and European group of about 50 cou
 * Cluster results depend on the number of groups chosen, the time window, and how abstentions are scored. Most countries outside the Western group and the five outliers form a continuous cloud, so boundaries within it are somewhat arbitrary.
 * Silhouette scores are a rule of thumb, and small extreme groups can raise them.
 * The anchor group in the time analysis is a choice of eight countries and is not a neutral reference.
-* The dataset uses one code for the Chinese seat throughout. The seat changed from the Republic of China to the People's Republic of China in 1971, so China's line starts in 1975-79.
-* The USSR/Russia line joins two codes. The 1990-94 point uses the Soviet Union's 1990-91 votes only, because the Soviet value is preferred when both exist.
-* Country-code continuity across renames is an assumption; Yemen's code spans North Yemen and the unified state after 1990.
+* The dataset uses one code for the Chinese seat throughout. The seat changed from the Republic of China to the People's Republic of China in 1971, so China's line is hidden before 1972 in the app and starts in 1975-79 in the anchor chart.
+* In the anchor chart, the USSR/Russia line joins two codes. The 1990-94 point uses the Soviet Union's 1990-91 votes only, because the Soviet value is preferred when both exist.
+* Linking predecessor states in the app is a modelling choice; East Germany and South Yemen are not linked to a successor. Yemen's code spans North Yemen and the unified state after 1990.
 * No significance tests have been run, and 2025 is unusual enough that windows including it should be read with care. The time analysis stops at 2024.
 
 ## Next steps
 
-1. Move the agreement and clustering functions from the notebooks into `src/votes.py`.
-2. Build a small Streamlit app: pick two countries, see their agreement over time and each country's closest voting partners.
-3. Plot the Soviet Union and Russia as separate series.
-4. Run the time analysis with the soft agreement scoring and compare.
+1. Deploy the app so it can be used online.
+2. Repeat the time analysis with soft scoring and compare.
+3. Plot the Soviet Union and Russia as separate series in the anchor chart.
 
 ## How to run
 
@@ -113,10 +129,16 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Download `2026_02_06_ga_voting.csv` from the [UN Digital Library](https://digitallibrary.un.org/record/4060887) into `data/raw/`, then:
+The prepared tables are already in `data/processed/`, so the app runs straight away:
+
+```bash
+streamlit run app.py
+```
+
+To rebuild them from the original data, download `2026_02_06_ga_voting.csv` from the [UN Digital Library](https://digitallibrary.un.org/record/4060887) into `data/raw/`, then:
 
 ```bash
 python src/prepare.py
 ```
 
-Run the notebooks in `notebooks/` in order.
+The notebooks in `notebooks/` contain the analysis.

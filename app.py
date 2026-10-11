@@ -61,9 +61,17 @@ def agreement_over_time(a, b, soft, link):
 @st.cache_data
 def partners(country, start, end, soft, link):
     df = closest_partners(get_matrix(link), res, country, start, end, soft=soft, top=10)
-    df.insert(0, "country", [names.get(c, c) for c in df.index])
-    return df
+    return pd.DataFrame({
+        "Country": [names.get(c, c) for c in df.index],
+        "Agreement": (df["agreement"] * 100).round(1).to_numpy(),
+        "Shared votes": df["shared_votes"].to_numpy(),
+    })
 
+
+PARTNER_COLUMNS = {
+    "Agreement": st.column_config.NumberColumn(format="%.1f%%"),
+    "Shared votes": st.column_config.NumberColumn(format="%d"),
+}
 
 st.title("UN General Assembly Voting Explorer")
 st.caption("How similarly do two countries vote on General Assembly resolutions "
@@ -105,10 +113,12 @@ st.subheader(f"Closest voting partners, {y0}-{y1}")
 c1, c2 = st.columns(2)
 with c1:
     st.write(f"Most like {label(a)}")
-    st.dataframe(partners(a, start, end, soft, link), use_container_width=True)
+    st.dataframe(partners(a, start, end, soft, link), use_container_width=True,
+                 hide_index=True, column_config=PARTNER_COLUMNS)
 with c2:
     st.write(f"Most like {label(b)}")
-    st.dataframe(partners(b, start, end, soft, link), use_container_width=True)
+    st.dataframe(partners(b, start, end, soft, link), use_container_width=True,
+                 hide_index=True, column_config=PARTNER_COLUMNS)
 
 st.caption("Data: United Nations Dag Hammarskjöld Library, General Assembly Voting Data, "
            "version 5 (February 2026). Non-commercial use with attribution. "
